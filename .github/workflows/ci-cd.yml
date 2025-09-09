@@ -1,0 +1,108 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Build application
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-files-${{ matrix.node-version }}
+          path: |
+            .next/
+            public/
+          retention-days: 7
+
+#   build-and-deploy:
+#     needs: test
+#     runs-on: ubuntu-latest
+#     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: "20.x"
+#           cache: "npm"
+
+#       - name: Install dependencies
+#         run: npm ci
+
+#       - name: Build application
+#         run: npm run build
+
+#       - name: Build Docker image
+#         run: |
+#           docker build -t ${{ github.repository }}:${{ github.sha }} .
+#           docker tag ${{ github.repository }}:${{ github.sha }} ${{ github.repository }}:latest
+
+#       - name: Log in to Docker Hub (optional)
+#         if: ${{ secrets.DOCKER_HUB_USERNAME && secrets.DOCKER_HUB_ACCESS_TOKEN }}
+#         uses: docker/login-action@v3
+#         with:
+#           username: ${{ secrets.DOCKER_HUB_USERNAME }}
+#           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+#       - name: Push to Docker Hub (optional)
+#         if: ${{ secrets.DOCKER_HUB_USERNAME && secrets.DOCKER_HUB_ACCESS_TOKEN }}
+#         run: |
+#           docker push ${{ github.repository }}:${{ github.sha }}
+#           docker push ${{ github.repository }}:latest
+
+    # Uncomment and configure for your deployment target
+    # - name: Deploy to staging/production
+    #   run: |
+    #     # Add your deployment commands here
+    #     # Examples:
+    #     # - Deploy to Vercel: npx vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
+    #     # - Deploy to AWS: aws s3 sync .next/ s3://your-bucket/
+    #     # - Deploy via SSH: scp -r .next/ user@server:/path/to/app/
+    #     echo "Add your deployment commands here"
+
+  security-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run security audit
+        run: npm audit --audit-level moderate
+
+      - name: Check for outdated dependencies
+        run: npm outdated || true
